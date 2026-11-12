@@ -213,8 +213,11 @@ export default function App() {
         onFilterApply={scrollToListings}
       />
 
-      {/* 3. Grille des 12 Catégories Officielles */}
-      <CategoryGrid onSelectCategory={scrollToListings} />
+      {/* 3. Vitrine et Rangs par Catégories Officielles */}
+      <CategoryGrid
+        onSelectCategory={scrollToListings}
+        onSelectAd={setSelectedAd}
+      />
 
       {/* 4. Section spéciale « Les Objets Gratuits (Dons solidaires) » */}
       {freeDonationsList.length > 0 && filters.type !== 'vente' && (

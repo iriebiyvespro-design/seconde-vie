@@ -169,10 +169,12 @@ export const MarketplaceProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('sv_admin_logs', JSON.stringify(adminLogs)); }, [adminLogs]);
 
   // Chargement des annonces depuis Strapi v5, avec repli silencieux en mode vitrine (Cloud / hors ligne)
-  const loadStrapiData = useCallback(async () => {
-    setLoadingAds(true);
+  const loadStrapiData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoadingAds(true);
+      setLoadingCategories(true);
+    }
     setAdsError(null);
-    setLoadingCategories(true);
     setCategoriesError(null);
 
     try {
@@ -185,15 +187,17 @@ export const MarketplaceProvider = ({ children }) => {
         setIsDemoMode(false);
       }
     } catch (err) {
-      console.info(
-        `Mode vitrine activé (Strapi indisponible sur ${STRAPI_API_URL}) :`,
-        err.message || 'hors ligne'
-      );
-      setAds(INITIAL_ADS);
+      if (!silent) {
+        console.info(
+          `Mode vitrine activé (Strapi indisponible sur ${STRAPI_API_URL}) :`,
+          err.message || 'hors ligne'
+        );
+      }
+      setAds(prev => (prev.length > 0 ? prev : INITIAL_ADS));
       setIsDemoMode(true);
       setAdsError(null);
     } finally {
-      setLoadingAds(false);
+      if (!silent) setLoadingAds(false);
     }
 
     try {
@@ -207,13 +211,41 @@ export const MarketplaceProvider = ({ children }) => {
       setCategoriesError(err.message);
       setCategories(FALLBACK_CATEGORIES);
     } finally {
-      setLoadingCategories(false);
+      if (!silent) setLoadingCategories(false);
     }
   }, []);
 
   useEffect(() => {
     loadStrapiData();
   }, [loadStrapiData]);
+
+  // Synchronisation automatique en temps réel au retour sur l'onglet ou toutes les 30s quand Strapi est connecté
+  useEffect(() => {
+    let lastSync = Date.now();
+    const syncIfOnline = () => {
+      if (isDemoMode) return;
+      const nowTs = Date.now();
+      if (nowTs - lastSync < 10000) return;
+      lastSync = nowTs;
+      loadStrapiData({ silent: true });
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncIfOnline();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    const interval = setInterval(syncIfOnline, 30000);
+
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      clearInterval(interval);
+    };
+  }, [isDemoMode, loadStrapiData]);
 
   const recordAdminLog = (action, targetType, targetId, oldValues, newValues) => {
     const entry = {
