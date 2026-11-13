@@ -3,20 +3,19 @@ import {
   X,
   Check,
   Crown,
-  Smartphone,
   AlertCircle,
   Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
 import PendingPaymentCard from './PendingPaymentCard';
+import WaveBadge from './WaveBadge';
 
 export default function PricingPlansModal({ onClose, onOpenAuth }) {
   const { user } = useAuth();
   const { initiatePayment, verifyAndFinalizePayment } = useMarketplace();
 
   const [selectedPlan, setSelectedPlan] = useState('plus');
-  const [selectedChannel, setSelectedChannel] = useState('WAVE_CI');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -27,14 +26,6 @@ export default function PricingPlansModal({ onClose, onOpenAuth }) {
   const [currentTransactionId, setCurrentTransactionId] = useState('');
 
   const currentPlanId = user?.subscription_plan_id || 'gratuit';
-
-  const channels = [
-    { id: 'WAVE_CI', name: "Wave Côte d'Ivoire" },
-    { id: 'ORANGE_MONEY_CI', name: 'Orange Money CI' },
-    { id: 'MTN_CI', name: 'MTN Mobile Money CI' },
-    { id: 'MOOV_CI', name: 'Moov Money CI' },
-    { id: 'CARD', name: 'Carte Bancaire (Visa / Mastercard)' }
-  ];
 
   const handleSubscribe = async (planId) => {
     setErrorMsg('');
@@ -55,7 +46,7 @@ export default function PricingPlansModal({ onClose, onOpenAuth }) {
       const res = await initiatePayment({
         payment_type: 'subscription',
         plan_id: planId,
-        channel: selectedChannel
+        channel: 'WAVE_CI'
       });
 
       setCurrentTransactionId(res.transaction_id);
@@ -111,10 +102,10 @@ export default function PricingPlansModal({ onClose, onOpenAuth }) {
             </div>
             <div>
               <h2 className="text-lg sm:text-xl font-black text-white">
-                Formules d'Abonnement SECONDE VIE
+                Formules d&apos;Abonnement SECONDE VIE
               </h2>
               <p className="text-xs text-slate-300">
-                Paiement sécurisé en Francs CFA (XOF) via Moneroo
+                Paiement rapide et sécurisé via Wave Côte d&apos;Ivoire (+225) — XOF
               </p>
             </div>
           </div>
@@ -169,7 +160,7 @@ export default function PricingPlansModal({ onClose, onOpenAuth }) {
               transactionId={pendingInfo.transaction_id}
               amountFcfa={pendingInfo.amount}
               description={pendingInfo.description}
-              channel={pendingInfo.channel}
+              checkoutUrl={pendingInfo.checkout_url}
               statusFeedback={statusFeedback}
               isVerifying={isVerifying}
               onVerifyStatus={handleVerifyPending}
@@ -263,14 +254,27 @@ export default function PricingPlansModal({ onClose, onOpenAuth }) {
 
                   <button
                     type="button"
-                    onClick={() => setSelectedPlan('plus')}
+                    disabled={currentPlanId === 'plus' || isProcessing}
+                    onClick={() => {
+                      setSelectedPlan('plus');
+                      handleSubscribe('plus');
+                    }}
                     className={`w-full py-3 rounded-xl text-xs font-black transition ${
                       selectedPlan === 'plus'
                         ? 'bg-eco-700 hover:bg-eco-800 text-white shadow-md'
                         : 'bg-eco-50 hover:bg-eco-100 text-eco-800'
                     }`}
                   >
-                    {currentPlanId === 'plus' ? 'Votre Formule Actuelle' : 'Choisir PLUS (2 000 FCFA)'}
+                    {isProcessing && selectedPlan === 'plus' ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Redirection Wave...</span>
+                      </span>
+                    ) : currentPlanId === 'plus' ? (
+                      'Votre Formule Actuelle'
+                    ) : (
+                      'Choisir PLUS (2 000 FCFA)'
+                    )}
                   </button>
                 </div>
 
@@ -311,49 +315,37 @@ export default function PricingPlansModal({ onClose, onOpenAuth }) {
 
                   <button
                     type="button"
-                    onClick={() => setSelectedPlan('business')}
+                    disabled={currentPlanId === 'business' || isProcessing}
+                    onClick={() => {
+                      setSelectedPlan('business');
+                      handleSubscribe('business');
+                    }}
                     className={`w-full py-3 rounded-xl text-xs font-black transition ${
                       selectedPlan === 'business'
                         ? 'bg-warm-600 hover:bg-warm-700 text-white shadow-md'
                         : 'bg-warm-50 hover:bg-warm-100 text-warm-800'
                     }`}
                   >
-                    {currentPlanId === 'business' ? 'Votre Formule Actuelle' : 'Choisir BUSINESS (5 000 FCFA)'}
+                    {isProcessing && selectedPlan === 'business' ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Redirection Wave...</span>
+                      </span>
+                    ) : currentPlanId === 'business' ? (
+                      'Votre Formule Actuelle'
+                    ) : (
+                      'Choisir BUSINESS (5 000 FCFA)'
+                    )}
                   </button>
                 </div>
 
               </div>
 
-              {/* Sélection du mode de paiement Moneroo */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-creme-50 border border-creme-200 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Smartphone className="w-4 h-4 text-eco-600" />
-                    Choisissez votre moyen de paiement via Moneroo (XOF) :
-                  </label>
-                  <span className="text-[11px] font-semibold text-eco-700">
-                    Paiement vérifié avant activation
-                  </span>
-                </div>
+              {/* Moyen de paiement exclusif Wave Côte d'Ivoire */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-creme-50 border border-creme-200 space-y-3.5">
+                <WaveBadge />
 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {channels.map(ch => (
-                    <button
-                      key={ch.id}
-                      type="button"
-                      onClick={() => setSelectedChannel(ch.id)}
-                      className={`p-2.5 rounded-xl border text-xs font-bold text-left transition ${
-                        selectedChannel === ch.id
-                          ? 'border-eco-600 bg-white ring-2 ring-eco-500/20 shadow-xs'
-                          : 'border-slate-200 bg-white/70 hover:bg-white text-slate-700'
-                      }`}
-                    >
-                      {ch.name}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                   <div className="text-xs text-slate-600">
                     Formule sélectionnée : <strong className="text-slate-900 uppercase">{selectedPlan}</strong> ({selectedPrice.toLocaleString('fr-FR')} FCFA)
                   </div>
@@ -362,15 +354,15 @@ export default function PricingPlansModal({ onClose, onOpenAuth }) {
                     type="button"
                     disabled={isProcessing}
                     onClick={() => handleSubscribe(selectedPlan)}
-                    className="px-6 py-3 bg-gradient-to-r from-warm-500 to-warm-600 hover:from-warm-600 hover:to-warm-700 text-white font-black text-xs rounded-xl shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] hover:from-[#0284c7] hover:to-[#0369a1] text-white font-black text-xs rounded-xl shadow-lg transition disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {isProcessing ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Initialisation Moneroo...</span>
+                        <span>Redirection Wave...</span>
                       </>
                     ) : (
-                      <span>Payer maintenant ({selectedPrice.toLocaleString('fr-FR')} FCFA) →</span>
+                      <span>Payer via Wave ({selectedPrice.toLocaleString('fr-FR')} FCFA) →</span>
                     )}
                   </button>
                 </div>

@@ -7,6 +7,7 @@
 
 import assert from 'node:assert';
 import crypto from 'node:crypto';
+import { sanitizeMetadata } from '../src/services/payments.js';
 
 console.log("=======================================================================");
 console.log("🔒 AUDIT DE SÉCURITÉ & TESTS MÉTIER : SECONDE VIE – CODE S");
@@ -202,6 +203,94 @@ runTest("Test 11 : Vérification cryptographique HMAC-SHA256 des webhooks Orqex 
 
   assert.strictEqual(verifyOrqexSignature(secret, rawPayload, validSig), true, "Une signature Orqex authentique doit être acceptée.");
   assert.strictEqual(verifyOrqexSignature(secret, rawPayload, forgedSig), false, "Une signature falsifiée doit être rejetée.");
+});
+
+// 12. Sanitisation universelle stricte des métadonnées Moneroo (Maximum 5 clés essentielles, <= 8 éléments)
+runTest("Test 12 : Sanitisation universelle stricte des métadonnées Moneroo (Éradication des erreurs max:10 et 422)", () => {
+  const dirtyInput = {
+    payment_type: 'subscription',
+    plan_id: 'plus',
+    boost_package_id: null,
+    ad_id: undefined,
+    listing_id: '',
+    empty_obj: {},
+    empty_arr: [],
+    user_id: 42,
+    channel: 'WAVE_CI',
+    reference: 'SV-MON-123',
+    extra_field_1: 'a',
+    extra_field_2: 'b',
+    extra_field_3: 'c',
+    extra_field_4: 'd',
+    extra_field_5: 'e'
+  };
+
+  const clean = sanitizeMetadata(dirtyInput, 'SV-MON-123');
+
+  assert.strictEqual(clean.type, 'subscription');
+  assert.strictEqual(clean.user_id, '42');
+  assert.strictEqual(clean.item_id, 'plus');
+  assert.strictEqual(clean.payment_id, 'SV-MON-123');
+  assert.strictEqual('ad_id' in clean, false, "ad_id ne doit pas exister pour une souscription.");
+  assert.strictEqual('boost_package_id' in clean, false, "boost_package_id ne doit pas exister.");
+  assert.strictEqual('extra_field_1' in clean, false, "Les clés superflues doivent être éliminées.");
+
+  const keysCount = Object.keys(clean).length;
+  assert.ok(keysCount <= 5, `Le nombre de clés (${keysCount}) doit être <= 5 (et <= 8).`);
+});
+
+// 13. Métadonnées d'abonnement et de boost conformes aux exigences Moneroo (<= 5 clés, jamais plus de 10)
+runTest("Test 13 : Métadonnées d'abonnement et de boost strictement isolées et typées (<= 5 clés)", () => {
+  // Métadonnées d'un abonnement (PricingPlansModal)
+  const subMeta = sanitizeMetadata({
+    type: 'subscription',
+    plan_id: 'business',
+    user_id: 'usr_789',
+    payment_id: 'SV-MON-SUB-1'
+  });
+
+  assert.deepStrictEqual(subMeta, {
+    type: 'subscription',
+    user_id: 'usr_789',
+    item_id: 'business',
+    payment_id: 'SV-MON-SUB-1'
+  });
+  assert.ok(Object.keys(subMeta).length <= 5, "Un abonnement ne doit comporter que 4 clés.");
+
+  // Métadonnées d'un boost (BoostAdModal)
+  const boostMeta = sanitizeMetadata({
+    type: 'boost',
+    boost_package_id: 'boost_7d',
+    ad_id: 'ad_456',
+    user_id: 'usr_789',
+    payment_id: 'SV-MON-BOOST-1'
+  });
+
+  assert.deepStrictEqual(boostMeta, {
+    type: 'boost',
+    user_id: 'usr_789',
+    ad_id: 'ad_456',
+    item_id: 'boost_7d',
+    payment_id: 'SV-MON-BOOST-1'
+  });
+  assert.ok(Object.keys(boostMeta).length <= 5, "Un boost ne doit comporter que 5 clés.");
+});
+
+// 14. Détection Sandbox vs Production pour methods Moneroo
+runTest("Test 14 : Gestion conditionnelle des modes Moneroo (Sandbox test vs Wave Live)", () => {
+  const buildPayload = (key, basePayload) => {
+    const isSandbox = key.startsWith('pvk_test_');
+    return {
+      ...basePayload,
+      ...(!isSandbox ? { methods: ['wave_ci'] } : {})
+    };
+  };
+
+  const sandboxPayload = buildPayload('pvk_test_12345abc', { amount: 2000, currency: 'XOF' });
+  const livePayload = buildPayload('pvk_live_67890xyz', { amount: 2000, currency: 'XOF' });
+
+  assert.strictEqual('methods' in sandboxPayload, false, "En mode Sandbox (pvk_test_), methods ne doit pas être imposé.");
+  assert.deepStrictEqual(livePayload.methods, ['wave_ci'], "En mode Live (pvk_live_), methods doit contenir strictement ['wave_ci'].");
 });
 
 console.log("\n=======================================================================");

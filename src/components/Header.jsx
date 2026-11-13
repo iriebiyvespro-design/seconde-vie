@@ -26,6 +26,7 @@ export default function Header({
   onNavigateHome,
   onNavigateDonations,
   onNavigateHowItWorks,
+  onOpenHowItWorks,
   onOpenFavorites,
   onOpenPricing
 }) {
@@ -96,7 +97,7 @@ export default function Header({
             </button>
 
             <button
-              onClick={onNavigateHowItWorks}
+              onClick={onOpenHowItWorks || onNavigateHowItWorks}
               className="flex items-center gap-1.5 px-2.5 xl:px-3 py-2 text-xs xl:text-sm font-semibold text-slate-700 hover:text-eco-700 hover:bg-eco-50/60 rounded-xl transition whitespace-nowrap"
             >
               <HelpCircle className="w-4 h-4 text-slate-500 flex-shrink-0" />
@@ -327,13 +328,58 @@ export default function Header({
           <button
             onClick={() => {
               setMobileMenuOpen(false);
-              onNavigateHowItWorks();
+              if (onOpenHowItWorks) onOpenHowItWorks();
+              else if (onNavigateHowItWorks) onNavigateHowItWorks();
             }}
             className="w-full text-left flex items-center gap-3 py-3 px-3 text-slate-800 font-semibold rounded-xl hover:bg-eco-50"
           >
-            <HelpCircle className="w-5 h-5 text-slate-500" />
-            Comment ça marche
+            <HelpCircle className="w-5 h-5 text-eco-600" />
+            <span>Comment ça marche &amp; Compartiments</span>
           </button>
+
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onOpenFavorites();
+            }}
+            className="w-full text-left flex items-center justify-between py-3 px-3 text-slate-800 font-semibold rounded-xl hover:bg-eco-50"
+          >
+            <div className="flex items-center gap-3">
+              <Heart className="w-5 h-5 text-warm-500" />
+              <span>Mes Favoris</span>
+            </div>
+            {favorites.length > 0 && (
+              <span className="px-2 py-0.5 text-xs font-black bg-warm-500 text-white rounded-full">
+                {favorites.length}
+              </span>
+            )}
+          </button>
+
+          {user && (
+            <>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenProfile('my-ads');
+                }}
+                className="w-full text-left flex items-center gap-3 py-3 px-3 text-slate-800 font-semibold rounded-xl hover:bg-eco-50"
+              >
+                <PlusCircle className="w-5 h-5 text-eco-600" />
+                <span>Mes Annonces</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenProfile('profile');
+                }}
+                className="w-full text-left flex items-center gap-3 py-3 px-3 text-slate-800 font-semibold rounded-xl hover:bg-eco-50"
+              >
+                <User className="w-5 h-5 text-slate-600" />
+                <span>Mon Profil &amp; Paramètres</span>
+              </button>
+            </>
+          )}
 
           {/* Uniquement visible si l'utilisateur connecté est Administrateur */}
           {isAdmin && (

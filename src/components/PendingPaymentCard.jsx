@@ -1,19 +1,12 @@
 import React from 'react';
-import { Clock, RefreshCw, AlertCircle, ShieldCheck, Smartphone, Loader2 } from 'lucide-react';
-
-const CHANNEL_LABELS = {
-  WAVE_CI: 'Wave Côte d’Ivoire',
-  ORANGE_MONEY_CI: 'Orange Money CI',
-  MTN_CI: 'MTN Mobile Money CI',
-  MOOV_CI: 'Moov Money CI',
-  CARD: 'Carte Bancaire (Visa / Mastercard)',
-};
+import { Clock, RefreshCw, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react';
+import WaveBadge from './WaveBadge';
 
 export default function PendingPaymentCard({
   transactionId,
   amountFcfa,
   description,
-  channel = 'WAVE_CI',
+  checkoutUrl = null,
   statusFeedback = '',
   isVerifying = false,
   onVerifyStatus,
@@ -34,12 +27,12 @@ export default function PendingPaymentCard({
               Paiement en attente de validation Moneroo
             </h3>
             <p className="text-xs text-slate-600 mt-0.5">
-              Votre service ne sera activé qu'après confirmation réelle du règlement par la passerelle Moneroo / Mobile Money.
+              Votre service ne sera activé qu&apos;après confirmation réelle du règlement via Wave Côte d&apos;Ivoire.
             </p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-3.5 border border-amber-200/80 space-y-2 text-xs">
+        <div className="bg-white rounded-xl p-3.5 border border-amber-200/80 space-y-2.5 text-xs">
           <div className="flex items-center justify-between gap-2">
             <span className="text-slate-500 font-medium">Objet :</span>
             <span className="font-bold text-slate-900 text-right">{description}</span>
@@ -48,11 +41,8 @@ export default function PendingPaymentCard({
             <span className="text-slate-500 font-medium">Montant à régler :</span>
             <span className="font-black text-eco-900">{Number(amountFcfa).toLocaleString('fr-FR')} FCFA (XOF)</span>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-slate-500 font-medium flex items-center gap-1">
-              <Smartphone className="w-3.5 h-3.5 text-eco-600" /> Moyen choisi :
-            </span>
-            <span className="font-bold text-slate-800">{CHANNEL_LABELS[channel] || channel}</span>
+          <div className="pt-1 border-t border-slate-100">
+            <WaveBadge variant="inline" />
           </div>
           <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
             <span className="text-slate-500 font-medium">Référence Strapi :</span>
@@ -65,10 +55,11 @@ export default function PendingPaymentCard({
         <div className="p-3 rounded-xl bg-white/80 border border-amber-200/60 text-[11px] text-amber-950 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
           <span>
-            La transaction a bien été enregistrée en base avec le statut <strong>pending</strong>. Ajoutez{' '}
+            La transaction a bien été enregistrée avec le statut <strong>pending</strong> (devise XOF, canal{' '}
+            <code className="bg-amber-100 px-1 rounded">wave_ci</code>). Ajoutez{' '}
             <code className="bg-amber-100 px-1 rounded">VITE_MONEROO_SECRET_KEY</code> (ou{' '}
             <code className="bg-amber-100 px-1 rounded">VITE_PAYMENT_BACKEND_URL</code>) dans{' '}
-            <code className="bg-amber-100 px-1 rounded">.env</code> pour rediriger automatiquement vers Moneroo Checkout.
+            <code className="bg-amber-100 px-1 rounded">.env</code> pour rediriger automatiquement vers Wave Checkout.
           </span>
         </div>
       </div>
@@ -78,6 +69,17 @@ export default function PendingPaymentCard({
           <ShieldCheck className="w-4 h-4 text-slate-600 flex-shrink-0" />
           <span>{statusFeedback}</span>
         </div>
+      )}
+
+      {checkoutUrl && (
+        <a
+          href={checkoutUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] hover:from-[#0284c7] hover:to-[#0369a1] text-white font-black text-xs rounded-xl shadow-md transition"
+        >
+          <span>Poursuivre le règlement sur Wave ({Number(amountFcfa).toLocaleString('fr-FR')} FCFA) →</span>
+        </a>
       )}
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">

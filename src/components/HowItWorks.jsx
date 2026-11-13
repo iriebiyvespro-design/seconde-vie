@@ -1,7 +1,7 @@
 import React from 'react';
 import { Camera, ShieldCheck, MessageCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
 
-export default function HowItWorks({ onOpenPublish }) {
+export default function HowItWorks({ onOpenPublish, onOpenHowItWorksModal }) {
   const steps = [
     {
       num: "01",
@@ -44,6 +44,17 @@ export default function HowItWorks({ onOpenPublish }) {
           <p className="text-sm sm:text-base text-slate-600 mt-2">
             Une marketplace transparente, rapide et sans commission cachée, pensée pour le quotidien ivoirien.
           </p>
+          {onOpenHowItWorksModal && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={onOpenHowItWorksModal}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-eco-50 hover:bg-eco-100 text-eco-800 text-xs font-bold rounded-xl border border-eco-200 shadow-xs transition"
+              >
+                <span>Consulter le guide complet des 6 compartiments →</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 4 Étapes */}
@@ -93,12 +104,23 @@ export default function HowItWorks({ onOpenPublish }) {
               Ne les jetez plus. Faites de la place et donnez le sourire à quelqu'un dès aujourd'hui.
             </p>
           </div>
-          <button
-            onClick={onOpenPublish}
-            className="w-full sm:w-auto px-5 sm:px-6 py-3.5 bg-gradient-to-r from-warm-500 to-warm-600 hover:from-warm-600 hover:to-warm-700 text-white font-extrabold text-sm rounded-2xl shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 text-center whitespace-normal sm:whitespace-nowrap"
-          >
-            Déposer une annonce maintenant →
-          </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto flex-shrink-0">
+            {onOpenHowItWorksModal && (
+              <button
+                type="button"
+                onClick={onOpenHowItWorksModal}
+                className="w-full sm:w-auto px-4 sm:px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs sm:text-sm rounded-2xl border border-white/20 transition text-center"
+              >
+                Guide des compartiments
+              </button>
+            )}
+            <button
+              onClick={onOpenPublish}
+              className="w-full sm:w-auto px-5 sm:px-6 py-3.5 bg-gradient-to-r from-warm-500 to-warm-600 hover:from-warm-600 hover:to-warm-700 text-white font-extrabold text-sm rounded-2xl shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 text-center whitespace-normal sm:whitespace-nowrap"
+            >
+              Déposer une annonce maintenant →
+            </button>
+          </div>
         </div>
 
       </div>

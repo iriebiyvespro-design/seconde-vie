@@ -3,6 +3,7 @@ import { X, FileText, Lock, ShieldCheck, CheckCircle2, Info } from 'lucide-react
 import { LEGAL_DOCUMENTS, LEGAL_TABS } from '../data/legalContent';
 
 const ICON_MAP = {
+  mentions: FileText,
   cgu: FileText,
   privacy: Lock,
   rules: ShieldCheck,

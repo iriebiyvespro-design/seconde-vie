@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CATEGORIES as FALLBACK_CATEGORIES } from '../data/categories';
 import { INITIAL_ADS } from '../data/seedAds';
+import { isAdBoostActive, compareAdsBoostFirst } from '../utils/adHelpers';
 import { useAuth } from './AuthContext';
 import {
   fetchActiveAds,
@@ -300,7 +301,25 @@ export const MarketplaceProvider = ({ children }) => {
       );
     }
 
-    const created = await createAd(adData, jwt);
+    // Résolution de la catégorie Strapi si disponible
+    const matchedCategory = categories.find(
+      c => c.id === adData.category ||
+           c.documentId === adData.category ||
+           c.slug === adData.category ||
+           c.name?.toLowerCase() === adData.category?.toLowerCase()
+    );
+
+    const resolvedCatId = matchedCategory?.documentId && matchedCategory.documentId !== matchedCategory.id
+      ? matchedCategory.documentId
+      : matchedCategory?.numericId || (typeof adData.categoryId === 'number' || /^[a-z0-9]{20,}$/i.test(adData.categoryId) ? adData.categoryId : undefined);
+
+    const enrichedAdData = {
+      ...adData,
+      categoryId: resolvedCatId,
+      authorId: adData.authorId || (typeof user?.id === 'number' ? user.id : undefined),
+    };
+
+    const created = await createAd(enrichedAdData, jwt);
     setAds(prev => [created, ...prev]);
     notifyAdStatusEvent({ ad: created, user, eventType: 'published' }).catch(() => {});
     return created;
@@ -399,6 +418,7 @@ export const MarketplaceProvider = ({ children }) => {
       throw new Error('Type de paiement invalide.');
     }
 
+    const enforcedChannel = 'WAVE_CI';
     const transactionId = `SV-MON-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const fee = Math.round(validatedAmount * 0.015);
     const typeAchatLabel = payment_type === 'subscription' ? `Abonnement ${plan_id}` : `Boost ${boost_package_id}`;
@@ -430,9 +450,9 @@ export const MarketplaceProvider = ({ children }) => {
       amount: validatedAmount,
       currency: 'FCFA',
       payment_provider: 'moneroo',
-      underlying_psp: `moneroo:${channel || 'WAVE_CI'}`,
-      routing_rule: 'moneroo_checkout',
-      payment_channel: channel || 'WAVE_CI',
+      underlying_psp: 'moneroo:wave_ci',
+      routing_rule: 'moneroo_wave_ci_only',
+      payment_channel: enforcedChannel,
       payment_type,
       plan_id: plan_id || null,
       boost_package_id: boost_package_id || null,
@@ -449,7 +469,15 @@ export const MarketplaceProvider = ({ children }) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
     const returnUrl = `${origin}/?payment_ref=${encodeURIComponent(transactionId)}`;
 
-    // 2. Appeler l'API Moneroo (/v1/payments/initialize) ou backend sécurisé
+    // 2. Appeler l'API Moneroo (/v1/payments/initialize) — restreint strictement à wave_ci (XOF)
+    const paymentMetadata = {
+      type: payment_type,
+      user_id: user?.id ? String(user.id) : 'guest',
+      item_id: String(payment_type === 'subscription' ? plan_id : boost_package_id),
+      payment_id: String(strapiDocId || transactionId),
+      ...(payment_type === 'boost' && ad_id ? { ad_id: String(ad_id) } : {}),
+    };
+
     const monerooRes = await initializeMonerooCheckout({
       reference: transactionId,
       amountXof: validatedAmount,
@@ -457,15 +485,7 @@ export const MarketplaceProvider = ({ children }) => {
       customerEmail: user?.email,
       customerName: user?.full_name,
       returnUrl,
-      metadata: {
-        payment_type,
-        plan_id: plan_id || '',
-        boost_package_id: boost_package_id || '',
-        listing_id: ad_id || '',
-        channel: channel || 'WAVE_CI',
-        user_id: user?.id ? String(user.id) : 'guest',
-        strapi_document_id: strapiDocId || ''
-      }
+      metadata: paymentMetadata,
     });
 
     // Conserver le contexte de paiement en attente pour vérification au retour de Moneroo
@@ -506,7 +526,7 @@ export const MarketplaceProvider = ({ children }) => {
       transaction_id: transactionId,
       amount: validatedAmount,
       status: 'pending',
-      channel: channel || 'WAVE_CI',
+      channel: enforcedChannel,
       description,
       strapiDocId
     };
@@ -621,9 +641,10 @@ export const MarketplaceProvider = ({ children }) => {
 
   // Mise à jour synchronisée avec Strapi
   const updateAd = async (adId, updates) => {
+    const targetAd = ads.find(a => a.id === adId);
     setAds(prev => prev.map(ad => ad.id === adId ? { ...ad, ...updates, updatedAt: new Date().toISOString() } : ad));
     try {
-      await updateAdStrapi(adId, updates, jwt);
+      await updateAdStrapi(targetAd?.documentId || adId, updates, jwt);
     } catch (err) {
       console.warn('Synchronisation Strapi PUT /annonces échouée :', err.message);
     }
@@ -631,9 +652,10 @@ export const MarketplaceProvider = ({ children }) => {
 
   // Suppression synchronisée avec Strapi
   const deleteAd = async (adId) => {
+    const targetAd = ads.find(a => a.id === adId);
     setAds(prev => prev.filter(ad => ad.id !== adId));
     try {
-      await deleteAdStrapi(adId, jwt);
+      await deleteAdStrapi(targetAd?.documentId || adId, jwt);
     } catch (err) {
       console.warn('Synchronisation Strapi DELETE /annonces échouée :', err.message);
     }
@@ -682,6 +704,20 @@ export const MarketplaceProvider = ({ children }) => {
     recordAdminLog('REJECT_LISTING', 'listings', adId, null, { status: 'rejected', reason });
   };
 
+  const adminToggleBoostAd = (adId, durationDays = 7) => {
+    const targetAd = ads.find(a => a.id === adId);
+    const currentlyBoosted = isAdBoostActive(targetAd);
+    if (currentlyBoosted) {
+      updateAd(adId, { is_boosted: false, isBoosted: false, boost_expires_at: null });
+      recordAdminLog('UNBOOST_LISTING', 'listings', adId, { is_boosted: true }, { is_boosted: false });
+      return false;
+    }
+    const expiresAt = new Date(Date.now() + durationDays * 86400000).toISOString();
+    updateAd(adId, { is_boosted: true, isBoosted: true, boost_expires_at: expiresAt });
+    recordAdminLog('BOOST_LISTING', 'listings', adId, { is_boosted: false }, { is_boosted: true, expiresAt });
+    return true;
+  };
+
   const adminResolveReport = (reportId) => {
     setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'resolved' } : r));
     recordAdminLog('RESOLVE_REPORT', 'reports', reportId, null, { status: 'resolved' });
@@ -712,17 +748,19 @@ export const MarketplaceProvider = ({ children }) => {
     if (filters.maxPrice && ad.price > Number(filters.maxPrice)) return false;
 
     return true;
-  }).sort((a, b) => {
-    const aBoosted = a.is_boosted && (!a.boost_expires_at || new Date(a.boost_expires_at) > new Date());
-    const bBoosted = b.is_boosted && (!b.boost_expires_at || new Date(b.boost_expires_at) > new Date());
-    if (aBoosted && !bBoosted) return -1;
-    if (!aBoosted && bBoosted) return 1;
+  }).sort((a, b) =>
+    compareAdsBoostFirst(a, b, (x, y) => {
+      if (filters.sortBy === 'price-asc') return x.price - y.price;
+      if (filters.sortBy === 'price-desc') return y.price - x.price;
+      if (filters.sortBy === 'popular') return (y.views || 0) - (x.views || 0);
+      return new Date(y.createdAt) - new Date(x.createdAt);
+    })
+  );
 
-    if (filters.sortBy === 'price-asc') return a.price - b.price;
-    if (filters.sortBy === 'price-desc') return b.price - a.price;
-    if (filters.sortBy === 'popular') return (b.views || 0) - (a.views || 0);
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
+  // Annonces sponsorisées actives (triées par expiration/récence)
+  const sponsoredAds = ads
+    .filter(a => a.status === 'approved' && isAdBoostActive(a))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   // Calcul strict des recettes réelles
   const confirmedPayments = payments.filter(p => p.status === 'confirmed');
@@ -735,7 +773,7 @@ export const MarketplaceProvider = ({ children }) => {
   const failedRevenue = payments.filter(p => p.status === 'failed').reduce((acc, p) => acc + Number(p.amount), 0);
   const totalRefunded = payments.filter(p => p.status === 'refunded').reduce((acc, p) => acc + Number(p.amount), 0);
   const totalFees = confirmedPayments.reduce((acc, p) => acc + (Number(p.gateway_fee) || 0), 0);
-  const netRevenue = totalRevenue - totalFees - totalRefunded;
+  const netRevenue = Math.max(0, totalRevenue - totalFees);
 
   const now = Date.now();
   const dayRevenue = confirmedPayments.filter(p => new Date(p.created_at).getTime() > now - 86400000).reduce((acc, p) => acc + Number(p.amount), 0);
@@ -769,6 +807,7 @@ export const MarketplaceProvider = ({ children }) => {
     <MarketplaceContext.Provider value={{
       ads,
       filteredAds,
+      sponsoredAds,
       categories,
       loadingAds,
       adsError,
@@ -796,6 +835,7 @@ export const MarketplaceProvider = ({ children }) => {
       reportAd,
       adminApproveAd,
       adminRejectAd,
+      adminToggleBoostAd,
       adminResolveReport,
       initiatePayment,
       verifyAndFinalizePayment,

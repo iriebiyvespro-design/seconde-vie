@@ -242,3 +242,29 @@ export async function notifyAdStatusEvent({ ad, user, eventType = 'published' })
   return { emailResult, whatsappResult };
 }
 
+/**
+ * 4. Confirmation d'inscription aux alertes bonnes affaires & dons gratuits
+ */
+export async function notifyAlertSubscriptionConfirmed({ email, whatsapp, categoryName = 'Toutes les catégories' }) {
+  const subject = `Alertes activées (${categoryName}) — Seconde Vie`;
+  const message =
+    `🔔 Seconde Vie : Votre alerte bonnes affaires & dons gratuits pour "${categoryName}" est activée ! ` +
+    `Vous serez notifié dès qu'un nouvel article est publié à Abidjan.`;
+
+  const [emailResult, whatsappResult] = await Promise.all([
+    email
+      ? sendEmailNotification({
+          to: email,
+          subject,
+          text: message,
+          html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:20px;border:1px solid #e5e7eb;border-radius:12px;"><h3 style="color:#15803d;margin-top:0;">Alertes Seconde Vie activées 🔔</h3><p>${message}</p></div>`,
+        })
+      : Promise.resolve({ sent: false, channel: 'email', mode: 'skipped' }),
+    whatsapp
+      ? sendWhatsAppNotification({ to: whatsapp, message })
+      : Promise.resolve({ sent: false, channel: 'whatsapp', mode: 'skipped' }),
+  ]);
+
+  return { emailResult, whatsappResult };
+}
+

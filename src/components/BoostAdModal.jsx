@@ -4,12 +4,12 @@ import {
   Zap,
   Clock,
   CheckCircle,
-  Smartphone,
   AlertCircle,
   Loader2
 } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import PendingPaymentCard from './PendingPaymentCard';
+import WaveBadge from './WaveBadge';
 
 export default function BoostAdModal({ ad, onClose, onSuccess }) {
   if (!ad) return null;
@@ -24,7 +24,6 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
   const remainingCredits = getUserRemainingCredits();
 
   const [selectedPkg, setSelectedPkg] = useState('boost_7d');
-  const [selectedChannel, setSelectedChannel] = useState('WAVE_CI');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -32,14 +31,6 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [statusFeedback, setStatusFeedback] = useState('');
   const [success, setSuccess] = useState(false);
-
-  const channels = [
-    { id: 'WAVE_CI', name: 'Wave' },
-    { id: 'ORANGE_MONEY_CI', name: 'Orange Money' },
-    { id: 'MTN_CI', name: 'MTN Money' },
-    { id: 'MOOV_CI', name: 'Moov Money' },
-    { id: 'CARD', name: 'Carte Bancaire' }
-  ];
 
   const packages = boostPackages || [
     { id: 'boost_24h', name: 'Boost 24 heures', duration_hours: 24, price_fcfa: 500, badge: 'Sponsorisé 24h' },
@@ -68,7 +59,7 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
         payment_type: 'boost',
         boost_package_id: selectedPkg,
         ad_id: ad.id,
-        channel: selectedChannel
+        channel: 'WAVE_CI'
       });
 
       if (res.mode === 'redirect' && res.checkout_url) {
@@ -120,10 +111,10 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
             </div>
             <div>
               <h3 className="text-base font-black">
-                Booster la visibilité de l'annonce
+                Booster la visibilité de l&apos;annonce
               </h3>
               <p className="text-[11px] text-warm-100">
-                Paiement sécurisé Moneroo en XOF (FCFA)
+                Paiement rapide et sécurisé via Wave Côte d&apos;Ivoire (+225)
               </p>
             </div>
           </div>
@@ -172,7 +163,7 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
               transactionId={pendingInfo.transaction_id}
               amountFcfa={pendingInfo.amount}
               description={pendingInfo.description}
-              channel={pendingInfo.channel}
+              checkoutUrl={pendingInfo.checkout_url}
               statusFeedback={statusFeedback}
               isVerifying={isVerifying}
               onVerifyStatus={handleVerifyPending}
@@ -183,9 +174,13 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
               {/* Rappel annonce ciblée */}
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200">
                 <img
-                  src={ad.images?.[0]}
+                  src={ad.images?.[0] || 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=80'}
                   alt={ad.title}
-                  className="w-12 h-12 rounded-xl object-cover"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=80';
+                  }}
+                  className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
                 />
                 <div className="min-w-0 flex-1">
                   <h4 className="text-xs font-bold text-slate-900 truncate">{ad.title}</h4>
@@ -266,28 +261,8 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
                 </div>
               </div>
 
-              {/* Choix moyen de paiement */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-                  <Smartphone className="w-3.5 h-3.5 text-eco-600" /> Moyen de paiement via Moneroo (XOF) :
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {channels.map(ch => (
-                    <button
-                      key={ch.id}
-                      type="button"
-                      onClick={() => setSelectedChannel(ch.id)}
-                      className={`p-2 rounded-xl border text-[11px] font-bold text-center transition ${
-                        selectedChannel === ch.id
-                          ? 'border-eco-600 bg-eco-50 text-eco-900 font-extrabold'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      {ch.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Moyen de paiement exclusif Wave Côte d'Ivoire */}
+              <WaveBadge />
 
               {/* Bouton de confirmation */}
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3">
@@ -299,15 +274,15 @@ export default function BoostAdModal({ ad, onClose, onSuccess }) {
                   type="button"
                   disabled={isProcessing}
                   onClick={handleConfirmBoost}
-                  className="px-5 py-2.5 bg-gradient-to-r from-warm-500 to-warm-600 hover:from-warm-600 hover:to-warm-700 text-white font-black text-xs rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] hover:from-[#0284c7] hover:to-[#0369a1] text-white font-black text-xs rounded-xl shadow-md transition disabled:opacity-50 flex items-center gap-2"
                 >
                   {isProcessing ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Initialisation...</span>
+                      <span>Redirection Wave...</span>
                     </>
                   ) : (
-                    <span>Payer maintenant ({Number(currentSelectedObj.price_fcfa).toLocaleString('fr-FR')} FCFA) →</span>
+                    <span>Payer via Wave ({Number(currentSelectedObj.price_fcfa).toLocaleString('fr-FR')} FCFA) →</span>
                   )}
                 </button>
               </div>

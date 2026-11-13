@@ -5,7 +5,9 @@
  * ==============================================================================
  */
 
-export const STRAPI_API_URL = import.meta.env.VITE_STRAPI_API_URL || 'http://localhost:1337/api';
+export const STRAPI_API_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STRAPI_API_URL) ||
+  'http://localhost:1337/api';
 export const STRAPI_ORIGIN = STRAPI_API_URL.replace(/\/api\/?$/, '');
 
 export const JWT_STORAGE_KEY = 'sv_jwt';
@@ -65,31 +67,50 @@ function resolveMediaUrl(url) {
  * Extrait un tableau d'URLs d'images depuis les formats Strapi v5 / v4 / URLs simples
  */
 function extractImages(raw) {
-  const mediaCandidate = raw.photos || raw.images || raw.photo || raw.image;
-  if (!mediaCandidate) return [FALLBACK_AD_IMAGE];
+  const allImages = [];
 
-  let list = [];
-  if (Array.isArray(mediaCandidate)) {
-    list = mediaCandidate;
-  } else if (Array.isArray(mediaCandidate.data)) {
-    list = mediaCandidate.data;
-  } else if (mediaCandidate.data) {
-    list = [mediaCandidate.data];
-  } else if (typeof mediaCandidate === 'object' && mediaCandidate.url) {
-    list = [mediaCandidate];
-  } else if (typeof mediaCandidate === 'string') {
-    return [resolveMediaUrl(mediaCandidate)];
+  // 1. Médias uploadés dans Strapi (relation photos)
+  const mediaCandidate = raw.photos || raw.images || raw.photo || raw.image;
+  if (mediaCandidate) {
+    let list = [];
+    if (Array.isArray(mediaCandidate)) {
+      list = mediaCandidate;
+    } else if (Array.isArray(mediaCandidate.data)) {
+      list = mediaCandidate.data;
+    } else if (mediaCandidate.data) {
+      list = [mediaCandidate.data];
+    } else if (typeof mediaCandidate === 'object' && mediaCandidate.url) {
+      list = [mediaCandidate];
+    } else if (typeof mediaCandidate === 'string') {
+      list = [mediaCandidate];
+    }
+
+    list.forEach((m) => {
+      if (typeof m === 'string') {
+        allImages.push(resolveMediaUrl(m));
+      } else {
+        const unwrapped = unwrapStrapiItem(m);
+        const url = unwrapped?.url || unwrapped?.formats?.medium?.url || unwrapped?.formats?.small?.url;
+        if (url) allImages.push(resolveMediaUrl(url));
+      }
+    });
   }
 
-  const urls = list
-    .map((m) => {
-      if (typeof m === 'string') return resolveMediaUrl(m);
-      const unwrapped = unwrapStrapiItem(m);
-      return resolveMediaUrl(unwrapped?.url || unwrapped?.formats?.medium?.url || unwrapped?.formats?.small?.url);
-    })
-    .filter(Boolean);
+  // 2. URLs d'images externes (photos_externes)
+  if (raw.photos_externes) {
+    const extList = Array.isArray(raw.photos_externes)
+      ? raw.photos_externes
+      : typeof raw.photos_externes === 'string'
+        ? [raw.photos_externes]
+        : [];
+    extList.forEach((u) => {
+      if (typeof u === 'string' && u.trim()) {
+        allImages.push(resolveMediaUrl(u.trim()));
+      }
+    });
+  }
 
-  return urls.length > 0 ? urls : [FALLBACK_AD_IMAGE];
+  return allImages.length > 0 ? allImages : [FALLBACK_AD_IMAGE];
 }
 
 /**
@@ -124,6 +145,10 @@ export function mapFrontendStatusToStrapi(status) {
   switch (status) {
     case 'approved':
       return 'active';
+    case 'pending':
+      return 'en_attente';
+    case 'rejected':
+      return 'refusee';
     case 'sold':
       return 'vendue';
     case 'given':
@@ -349,6 +374,7 @@ export async function uploadFilesToStrapi(files, jwt = getStoredJwt()) {
 export async function createAd(adData, jwt = getStoredJwt()) {
   let uploadedMediaIds = [];
 
+  // 1. Téléversement préalable des fichiers binaires vers POST /api/upload
   if (adData.files && adData.files.length > 0 && jwt) {
     try {
       const uploaded = await uploadFilesToStrapi(adData.files, jwt);
@@ -358,14 +384,31 @@ export async function createAd(adData, jwt = getStoredJwt()) {
     }
   }
 
+  // 2. Filtrer les URLs d'images externes (commençant par http:// ou https://)
+  const externalImages = (adData.images || []).filter(
+    (img) => typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))
+  );
+
   const strapiPayload = {
     data: {
-      titre: adData.title,
-      description: adData.description,
-      prix: adData.type === 'don' ? 0 : Number(adData.price) || 0,
+      titre: adData.title || adData.titre || 'Nouvel article',
+      description: adData.description || '',
+      prix: adData.type === 'don' || adData.nature === 'don' ? 0 : Number(adData.price || adData.prix) || 0,
+      devise: 'FCFA',
+      commune: adData.commune || 'Cocody',
+      quartier: adData.quartier || '',
+      etat: adData.condition || adData.etat || 'tres-bon-etat',
+      nature: adData.type === 'don' || adData.nature === 'don' ? 'don' : 'vente',
+      telephone: adData.contactPhone || adData.telephone || '',
+      whatsapp: adData.contactWhatsapp || adData.whatsapp || adData.contactPhone || '',
+      contact_nom: adData.contactName || adData.contact_nom || 'Membre Seconde Vie',
       statut: 'active',
-      est_sponsorisee: false,
+      est_sponsorisee: Boolean(adData.is_boosted || adData.est_sponsorisee),
+      ...(adData.boost_expires_at ? { date_expiration_boost: adData.boost_expires_at } : {}),
       ...(uploadedMediaIds.length > 0 ? { photos: uploadedMediaIds } : {}),
+      ...(externalImages.length > 0 ? { photos_externes: externalImages } : {}),
+      ...(adData.categoryId ? { categorie: adData.categoryId } : {}),
+      ...(adData.authorId ? { auteur: adData.authorId } : {}),
     },
   };
 
@@ -378,7 +421,7 @@ export async function createAd(adData, jwt = getStoredJwt()) {
   const result = await handleStrapiResponse(response);
   const normalized = normalizeStrapiAd(result?.data || result);
 
-  // Conserver les métadonnées locales si le content-type Strapi minimal ne stocke pas encore tous les champs
+  // Conserver les métadonnées locales pour retour immédiat et réactivité de l'UI
   return {
     ...normalized,
     category: adData.category || normalized.category,
@@ -406,6 +449,13 @@ export async function updateAdStrapi(idOrDocId, updates, jwt = getStoredJwt()) {
   if (updates.title !== undefined) strapiData.titre = updates.title;
   if (updates.description !== undefined) strapiData.description = updates.description;
   if (updates.price !== undefined) strapiData.prix = Number(updates.price);
+  if (updates.commune !== undefined) strapiData.commune = updates.commune;
+  if (updates.quartier !== undefined) strapiData.quartier = updates.quartier;
+  if (updates.condition !== undefined) strapiData.etat = updates.condition;
+  if (updates.type !== undefined) strapiData.nature = updates.type;
+  if (updates.contactPhone !== undefined) strapiData.telephone = updates.contactPhone;
+  if (updates.contactWhatsapp !== undefined) strapiData.whatsapp = updates.contactWhatsapp;
+  if (updates.contactName !== undefined) strapiData.contact_nom = updates.contactName;
   if (updates.status !== undefined) strapiData.statut = mapFrontendStatusToStrapi(updates.status);
   if (updates.is_boosted !== undefined) strapiData.est_sponsorisee = updates.is_boosted;
   if (updates.boost_expires_at !== undefined) strapiData.date_expiration_boost = updates.boost_expires_at;
@@ -746,6 +796,37 @@ export async function updateStrapiPaymentStatus(idOrDocId, statut, jwt = getStor
   });
   const result = await handleStrapiResponse(response);
   return normalizeStrapiPayment(result?.data || result);
+}
+
+/**
+ * Enregistre une inscription aux alertes nouveautés dans Strapi (POST /alertes)
+ * avec repli local propre si Strapi est hors ligne ou le content-type pas encore créé.
+ */
+export async function subscribeNewsletterStrapi({ email, whatsapp, categoryId, categoryName }, jwt = getStoredJwt()) {
+  const payload = {
+    email: email || null,
+    whatsapp: whatsapp || null,
+    categorie: categoryName || categoryId || 'Toutes les catégories',
+    categorie_slug: categoryId || 'all',
+    created_at: new Date().toISOString(),
+  };
+
+  try {
+    const response = await fetchWithTimeout(`${STRAPI_API_URL}/alertes`, {
+      method: 'POST',
+      headers: buildHeaders(jwt, true),
+      body: JSON.stringify({ data: payload }),
+    });
+    const res = await handleStrapiResponse(response);
+    return { syncedWithStrapi: true, data: res?.data || res || payload };
+  } catch (err) {
+    // Repli local pour ne jamais bloquer le visiteur (mode Cloud / Strapi sans table alertes)
+    try {
+      const existing = JSON.parse(localStorage.getItem('sv_alert_subscriptions') || '[]');
+      localStorage.setItem('sv_alert_subscriptions', JSON.stringify([payload, ...existing]));
+    } catch {}
+    return { syncedWithStrapi: false, data: payload, fallbackReason: err.message };
+  }
 }
 
 

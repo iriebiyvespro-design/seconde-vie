@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { CONDITIONS } from '../data/categories';
 import { COMMUNES_ABIDJAN } from '../data/communes';
 
-export default function PublishModal({ onClose, onSuccess, onOpenPricing }) {
+export default function PublishModal({ onClose, onSuccess, onOpenPricing, onOpenBoost }) {
   const { publishAd, categories } = useMarketplace();
   const { user } = useAuth();
 
@@ -40,6 +40,7 @@ export default function PublishModal({ onClose, onSuccess, onOpenPricing }) {
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [createdAd, setCreatedAd] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   // Quartiers disponibles pour la commune choisie
@@ -103,7 +104,7 @@ export default function PublishModal({ onClose, onSuccess, onOpenPricing }) {
         "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80"
       ];
 
-      await publishAd({
+      const created = await publishAd({
         title,
         description,
         category,
@@ -119,6 +120,7 @@ export default function PublishModal({ onClose, onSuccess, onOpenPricing }) {
         files: selectedFiles
       });
 
+      setCreatedAd(created);
       setSubmittedSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err) {
@@ -154,27 +156,77 @@ export default function PublishModal({ onClose, onSuccess, onOpenPricing }) {
         <div className="p-4 sm:p-6 overflow-y-auto flex-1">
           
           {submittedSuccess ? (
-            <div className="py-8 text-center space-y-4">
+            <div className="py-6 sm:py-8 text-center space-y-5 max-w-lg mx-auto">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900">
-                Annonce soumise avec succès !
-              </h3>
-              <div className="max-w-md mx-auto p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-sm space-y-2">
-                <div className="flex items-center justify-center gap-1.5 font-bold text-amber-800">
-                  <Clock className="w-4 h-4 text-amber-600" /> Modération en cours
-                </div>
-                <p className="text-xs leading-relaxed">
-                  Conformément à la politique qualité de <strong>Seconde Vie</strong>, votre annonce est actuellement en attente de vérification par notre équipe afin de protéger notre communauté contre les arnaques. Elle sera en ligne d'ici quelques instants !
+              <div className="space-y-1">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                  Félicitations ! Votre annonce est publiée
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500">
+                  Elle est actuellement en cours de vérification par notre équipe de modération.
                 </p>
               </div>
-              <button
-                onClick={onClose}
-                className="mt-4 px-6 py-3 bg-eco-700 hover:bg-eco-800 text-white font-extrabold rounded-2xl shadow-md transition"
-              >
-                Retourner à l'accueil
-              </button>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span>Validation rapide sous 2 heures pour protéger les acheteurs d&apos;Abidjan.</span>
+              </div>
+
+              {/* Encart Upsell : Vendez 5x plus vite avec un Boost */}
+              <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-50 via-warm-50 to-orange-50 border-2 border-amber-300 shadow-md text-left space-y-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-gradient-to-r from-amber-500 to-warm-500 text-white rounded-xl shadow-xs">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-sm sm:text-base text-slate-900">
+                      ⚡ Vendez 5x plus vite !
+                    </h4>
+                    <p className="text-xs text-slate-600">
+                      Mettez votre annonce en avant dès maintenant
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  Boostez votre article pour apparaître <strong>en tête de catégorie</strong> et dans la <strong>Sélection Sponsorisée</strong> visible par des milliers d&apos;acheteurs à Abidjan (Cocody, Yopougon, Marcory...).
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onOpenBoost) {
+                        onOpenBoost(
+                          createdAd || {
+                            title,
+                            price,
+                            images:
+                              images.length > 0
+                                ? images
+                                : [
+                                    'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80'
+                                  ]
+                          }
+                        );
+                      }
+                      onClose();
+                    }}
+                    className="flex-1 py-3 px-4 bg-gradient-to-r from-warm-500 via-amber-500 to-warm-600 hover:from-warm-600 hover:to-amber-600 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                  >
+                    <span>⚡ Booster mon annonce maintenant</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="py-3 px-4 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition text-center"
+                  >
+                    Non merci, continuer sans booster
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">

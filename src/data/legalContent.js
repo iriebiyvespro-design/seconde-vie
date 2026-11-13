@@ -188,9 +188,55 @@ export const LEGAL_DOCUMENTS = {
       },
     ],
   },
+
+  mentions: {
+    id: 'mentions',
+    shortLabel: 'Mentions Légales',
+    badge: 'Informations Légales & Éditeur',
+    title: 'Mentions Légales',
+    subtitle: "Informations relatives à l'éditeur, aux contacts officiels et à l'hébergement de Seconde Vie.",
+    updatedAt: 'Novembre 2026 — République de Côte d’Ivoire',
+    highlight: {
+      title: 'Éditeur & Hébergeur officiel',
+      text: "Plateforme officielle Seconde Vie à Abidjan, Côte d'Ivoire. Contact officiel : contact@secondevie.ci. Hébergement cloud haute disponibilité assuré par Cloudflare Pages.",
+    },
+    sections: [
+      {
+        heading: '1. Éditeur de la plateforme',
+        paragraphs: [
+          "Le site et service en ligne « Seconde Vie » (accessible à l'adresse https://secondevie.ci et l'ensemble de ses interfaces web) est édité par l'équipe Seconde Vie, plateforme communautaire dédiée à l'achat, la vente d'occasion et le don solidaire en République de Côte d'Ivoire.",
+          "Siège des opérations : Abidjan (Cocody, Plateau, Marcory), République de Côte d'Ivoire.",
+          "Courriel officiel du support : contact@secondevie.ci",
+          "Directeur de la publication : Équipe de Direction Seconde Vie Côte d'Ivoire.",
+        ],
+      },
+      {
+        heading: '2. Hébergement de la plateforme',
+        paragraphs: [
+          "La plateforme web, son interface utilisateur, ses assets statiques et son réseau de diffusion de contenu (CDN mondial) sont hébergés par :",
+          "Cloudflare Pages (Cloudflare, Inc. — 101 Townsend St, San Francisco, CA 94107, États-Unis — Site web : https://pages.cloudflare.com).",
+          "L'infrastructure garantit une haute disponibilité, une protection anti-DDoS permanente et un chiffrement sécurisé SSL/TLS de bout en bout.",
+        ],
+      },
+      {
+        heading: '3. Propriété intellectuelle',
+        paragraphs: [
+          "La marque « SECONDE VIE », les logos, les interfaces logicielles, la charte graphique, les textes éditoriaux et l'ensemble des éléments visuels constituent des créations protégées par le droit de la propriété intellectuelle applicable en Côte d'Ivoire et à l'international.",
+          "Toute reproduction, représentation, modification ou extraction totale ou partielle du contenu du site sans accord préalable écrit est formellement interdite.",
+        ],
+      },
+      {
+        heading: '4. Contact & Réclamations',
+        paragraphs: [
+          "Pour toute question relative aux mentions légales, au fonctionnement du service ou pour signaler un contenu inapproprié, vous pouvez adresser votre demande par voie électronique à : contact@secondevie.ci.",
+        ],
+      },
+    ],
+  },
 };
 
 export const LEGAL_TABS = [
+  { id: 'mentions', label: 'Mentions Légales' },
   { id: 'cgu', label: 'CGU' },
   { id: 'privacy', label: 'Confidentialité' },
   { id: 'rules', label: 'Charte & Sécurité' },

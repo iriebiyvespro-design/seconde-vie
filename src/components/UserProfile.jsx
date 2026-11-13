@@ -29,6 +29,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { COMMUNES_ABIDJAN } from '../data/communes';
+import { isAdBoostActive } from '../utils/adHelpers';
 import AdCard from './AdCard';
 
 // Extraire la partie locale d'un numéro ivoirien (sans le préfixe +225)
@@ -416,119 +417,193 @@ export default function UserProfile({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-3.5">
-                  {myAds.map((ad) => (
-                    <div
-                      key={ad.id}
-                      className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                    >
-                      <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                        <img
-                          src={ad.images?.[0]}
-                          alt={ad.title}
-                          className="w-16 h-16 rounded-xl object-cover border border-gray-200 flex-shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            {ad.status === 'pending' && (
-                              <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> En attente de validation
-                              </span>
-                            )}
-                            {ad.status === 'approved' && (
-                              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
-                                ✓ En ligne
-                              </span>
-                            )}
-                            {ad.status === 'sold' && (
-                              <span className="text-[10px] font-bold bg-slate-200 text-slate-800 px-2 py-0.5 rounded-md">
-                                ✓ Vendu
-                              </span>
-                            )}
-                            {ad.status === 'given' && (
-                              <span className="text-[10px] font-bold bg-eco-200 text-eco-900 px-2 py-0.5 rounded-md">
-                                ✓ Donné
-                              </span>
-                            )}
-                            <span className="text-xs text-slate-400">• {ad.commune}</span>
+                  {myAds.map((ad) => {
+                    const boosted = isAdBoostActive(ad);
+                    const expiryDate = ad.boost_expires_at ? new Date(ad.boost_expires_at) : null;
+                    const daysRemaining = expiryDate
+                      ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                      : 0;
+
+                    return (
+                      <div
+                        key={ad.id}
+                        className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm flex flex-col gap-3.5 transition hover:border-gray-300"
+                      >
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                            <img
+                              src={
+                                ad.images?.[0] ||
+                                'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&auto=format&fit=crop&q=80'
+                              }
+                              alt={ad.title}
+                              className="w-16 h-16 rounded-xl object-cover border border-gray-200 flex-shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                {ad.status === 'pending' && (
+                                  <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                    <Clock className="w-3 h-3" /> En attente de validation
+                                  </span>
+                                )}
+                                {ad.status === 'approved' && (
+                                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                                    ✓ En ligne
+                                  </span>
+                                )}
+                                {ad.status === 'sold' && (
+                                  <span className="text-[10px] font-bold bg-slate-200 text-slate-800 px-2 py-0.5 rounded-md">
+                                    ✓ Vendu
+                                  </span>
+                                )}
+                                {ad.status === 'given' && (
+                                  <span className="text-[10px] font-bold bg-eco-200 text-eco-900 px-2 py-0.5 rounded-md">
+                                    ✓ Donné
+                                  </span>
+                                )}
+                                {boosted && (
+                                  <span className="text-[10px] font-black bg-gradient-to-r from-amber-500 to-warm-500 text-white px-2 py-0.5 rounded-md flex items-center gap-1 shadow-xs">
+                                    <Zap className="w-3 h-3" /> Sponsorisée
+                                  </span>
+                                )}
+                                <span className="text-xs text-slate-400">• {ad.commune}</span>
+                              </div>
+
+                              <h4 className="font-extrabold text-slate-900 text-sm truncate">
+                                {ad.title}
+                              </h4>
+
+                              <p className="text-xs font-bold text-eco-900 mt-1">
+                                {ad.type === 'don'
+                                  ? 'Don Gratuit (0 FCFA)'
+                                  : `${Number(ad.price).toLocaleString('fr-FR')} FCFA`}
+                              </p>
+                            </div>
                           </div>
 
-                          <h4 className="font-extrabold text-slate-900 text-sm truncate">
-                            {ad.title}
-                          </h4>
+                          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2.5 sm:pt-0 border-gray-100">
+                            <button
+                              type="button"
+                              onClick={() => onSelectAd(ad)}
+                              className="p-2 text-slate-600 hover:text-eco-800 hover:bg-gray-100 rounded-xl transition"
+                              title="Voir l'annonce"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
 
-                          <p className="text-xs font-bold text-eco-900 mt-1">
-                            {ad.type === 'don' ? 'Don Gratuit (0 FCFA)' : `${Number(ad.price).toLocaleString('fr-FR')} FCFA`}
-                          </p>
+                            {ad.status !== 'sold' && ad.type === 'vente' && (
+                              <button
+                                type="button"
+                                onClick={() => markAsSold(ad.id)}
+                                className="px-3 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition"
+                              >
+                                Marquer "Vendu"
+                              </button>
+                            )}
+
+                            {ad.status !== 'given' && (
+                              <button
+                                type="button"
+                                onClick={() => markAsGiven(ad.id)}
+                                className="px-3 py-1.5 bg-eco-700 hover:bg-eco-800 text-white font-bold text-xs rounded-xl transition"
+                              >
+                                Marquer "Donné"
+                              </button>
+                            )}
+
+                            {(ad.status === 'sold' || ad.status === 'given') && (
+                              <button
+                                type="button"
+                                onClick={() => relistAd(ad.id)}
+                                className="px-3 py-1.5 bg-warm-600 hover:bg-warm-700 text-white font-bold text-xs rounded-xl transition"
+                              >
+                                Remettre en ligne
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm('Supprimer cette annonce ?')) {
+                                  deleteAd(ad.id);
+                                }
+                              }}
+                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition"
+                              title="Supprimer l'annonce"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Bannière Dédiée Boost au bas de chaque carte */}
+                        {ad.status === 'approved' && (
+                          <div className="pt-2 border-t border-gray-100">
+                            {boosted ? (
+                              <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="p-1 rounded-lg bg-amber-500 text-white flex-shrink-0">
+                                    <Zap className="w-3.5 h-3.5" />
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-amber-950 truncate">
+                                      Annonce boostée (En tête de liste)
+                                    </p>
+                                    <p className="text-[11px] text-amber-800">
+                                      {daysRemaining > 0
+                                        ? `Actif • expire dans ${daysRemaining} jour(s) (${expiryDate?.toLocaleDateString('fr-FR')})`
+                                        : `Expire aujourd'hui (${expiryDate?.toLocaleDateString('fr-FR')})`}
+                                    </p>
+                                  </div>
+                                </div>
+                                {onOpenBoost && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onClose();
+                                      onOpenBoost(ad);
+                                    }}
+                                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition whitespace-nowrap"
+                                  >
+                                    Prolonger le boost →
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50/60 border border-dashed border-slate-200 hover:border-amber-300 flex flex-wrap items-center justify-between gap-2 transition">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="p-1 rounded-lg bg-slate-200 text-slate-700 flex-shrink-0">
+                                    <Zap className="w-3.5 h-3.5" />
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-slate-800 truncate">
+                                      Booster cette annonce (Plus de visibilité)
+                                    </p>
+                                    <p className="text-[11px] text-slate-500">
+                                      Apparaissez en tête de catégorie à Abidjan et vendez 5x plus vite.
+                                    </p>
+                                  </div>
+                                </div>
+                                {onOpenBoost && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onClose();
+                                      onOpenBoost(ad);
+                                    }}
+                                    className="px-3 py-1.5 bg-warm-600 hover:bg-warm-700 text-white font-bold text-xs rounded-lg shadow-xs transition flex items-center gap-1 whitespace-nowrap"
+                                  >
+                                    <Zap className="w-3.5 h-3.5" />
+                                    <span>Booster maintenant</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-
-                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2.5 sm:pt-0 border-gray-100">
-                        {onOpenBoost && ad.status === 'approved' && !ad.is_boosted && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              onOpenBoost(ad);
-                            }}
-                            className="px-2.5 py-1.5 bg-warm-500 hover:bg-warm-600 text-white font-bold text-xs rounded-xl transition flex items-center gap-1"
-                          >
-                            <Zap className="w-3.5 h-3.5" /> Booster
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => onSelectAd(ad)}
-                          className="p-2 text-slate-600 hover:text-eco-800 hover:bg-gray-100 rounded-xl transition"
-                          title="Voir l'annonce"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-
-                        {ad.status !== 'sold' && ad.type === 'vente' && (
-                          <button
-                            type="button"
-                            onClick={() => markAsSold(ad.id)}
-                            className="px-3 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl transition"
-                          >
-                            Marquer "Vendu"
-                          </button>
-                        )}
-
-                        {ad.status !== 'given' && (
-                          <button
-                            type="button"
-                            onClick={() => markAsGiven(ad.id)}
-                            className="px-3 py-1.5 bg-eco-700 hover:bg-eco-800 text-white font-bold text-xs rounded-xl transition"
-                          >
-                            Marquer "Donné"
-                          </button>
-                        )}
-
-                        {(ad.status === 'sold' || ad.status === 'given') && (
-                          <button
-                            type="button"
-                            onClick={() => relistAd(ad.id)}
-                            className="px-3 py-1.5 bg-warm-600 hover:bg-warm-700 text-white font-bold text-xs rounded-xl transition"
-                          >
-                            Remettre en ligne
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (window.confirm('Supprimer cette annonce ?')) {
-                              deleteAd(ad.id);
-                            }
-                          }}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -853,7 +928,7 @@ export default function UserProfile({
                 <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => onOpenAdmin && onOpenAdmin()}
+                    onClick={() => onOpenAdmin && onOpenAdmin('moderation')}
                     className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-500 to-warm-600 hover:from-amber-600 hover:to-warm-700 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg transition"
                   >
                     <ShieldCheck className="w-4 h-4" />
@@ -866,7 +941,7 @@ export default function UserProfile({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
                   type="button"
-                  onClick={() => onOpenAdmin && onOpenAdmin()}
+                  onClick={() => onOpenAdmin && onOpenAdmin('moderation')}
                   className="bg-white hover:border-eco-400 border border-gray-200 rounded-xl p-4 text-left shadow-sm transition group"
                 >
                   <Package className="w-5 h-5 text-eco-700 mb-2" />
@@ -880,7 +955,7 @@ export default function UserProfile({
 
                 <button
                   type="button"
-                  onClick={() => onOpenAdmin && onOpenAdmin()}
+                  onClick={() => onOpenAdmin && onOpenAdmin('users')}
                   className="bg-white hover:border-eco-400 border border-gray-200 rounded-xl p-4 text-left shadow-sm transition group"
                 >
                   <Users className="w-5 h-5 text-warm-600 mb-2" />
@@ -894,7 +969,7 @@ export default function UserProfile({
 
                 <button
                   type="button"
-                  onClick={() => onOpenAdmin && onOpenAdmin()}
+                  onClick={() => onOpenAdmin && onOpenAdmin('finance')}
                   className="bg-white hover:border-eco-400 border border-gray-200 rounded-xl p-4 text-left shadow-sm transition group"
                 >
                   <BarChart3 className="w-5 h-5 text-amber-600 mb-2" />

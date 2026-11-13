@@ -1,3 +1,5 @@
+const DEMO_BOOST_EXPIRY = new Date(Date.now() + 7 * 86400000).toISOString();
+
 export const INITIAL_ADS = [
   {
     id: "sv-101",
@@ -14,7 +16,6 @@ export const INITIAL_ADS = [
     contactPhone: "+2250708123456",
     contactWhatsapp: "+2250708123456",
     images: [
-      "https://images.unsplash.com/photo-1533090161767-e6ffed986b88?w=800&auto=format&fit=crop&q=80",
       "https://images.unsplash.com/photo-1532372320572-cda25653a26d?w=800&auto=format&fit=crop&q=80"
     ],
     status: "approved",
@@ -22,7 +23,9 @@ export const INITIAL_ADS = [
     favoritesCount: 8,
     createdAt: "2026-11-09T14:20:00Z",
     sellerId: "user-awa-101",
-    isFeatured: true
+    isFeatured: true,
+    is_boosted: true,
+    boost_expires_at: DEMO_BOOST_EXPIRY
   },
   {
     id: "sv-102",
@@ -72,7 +75,9 @@ export const INITIAL_ADS = [
     favoritesCount: 35,
     createdAt: "2026-11-08T18:00:00Z",
     sellerId: "user-mickael-103",
-    isFeatured: true
+    isFeatured: true,
+    is_boosted: true,
+    boost_expires_at: DEMO_BOOST_EXPIRY
   },
   {
     id: "sv-104",
@@ -145,7 +150,9 @@ export const INITIAL_ADS = [
     favoritesCount: 29,
     createdAt: "2026-11-09T16:10:00Z",
     sellerId: "user-yao-106",
-    isFeatured: true
+    isFeatured: true,
+    is_boosted: true,
+    boost_expires_at: DEMO_BOOST_EXPIRY
   },
   {
     id: "sv-107",
@@ -241,7 +248,9 @@ export const INITIAL_ADS = [
     favoritesCount: 21,
     createdAt: "2026-11-11T14:15:00Z",
     sellerId: "user-kevin-110",
-    isFeatured: false
+    isFeatured: false,
+    is_boosted: true,
+    boost_expires_at: DEMO_BOOST_EXPIRY
   },
   {
     id: "sv-111",
@@ -265,7 +274,9 @@ export const INITIAL_ADS = [
     favoritesCount: 15,
     createdAt: "2026-11-11T10:20:00Z",
     sellerId: "user-nadine-111",
-    isFeatured: true
+    isFeatured: true,
+    is_boosted: true,
+    boost_expires_at: DEMO_BOOST_EXPIRY
   },
   {
     id: "sv-112",
@@ -313,7 +324,9 @@ export const INITIAL_ADS = [
     favoritesCount: 27,
     createdAt: "2026-11-11T07:50:00Z",
     sellerId: "user-serge-113",
-    isFeatured: false
+    isFeatured: false,
+    is_boosted: true,
+    boost_expires_at: DEMO_BOOST_EXPIRY
   },
   {
     id: "sv-114",

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import HeroBanner from './components/HeroBanner';
 import CategoryGrid from './components/CategoryGrid';
@@ -9,6 +9,10 @@ import AuthModal from './components/AuthModal';
 import AdminDashboard from './components/AdminDashboard';
 import UserProfile from './components/UserProfile';
 import HowItWorks from './components/HowItWorks';
+import FonctionnementModal from './components/FonctionnementModal';
+import LegalModal from './components/LegalModal';
+import SponsoredShowcase from './components/SponsoredShowcase';
+import NewsletterAlertSection from './components/NewsletterAlertSection';
 import SearchAndFilters from './components/SearchAndFilters';
 import Footer from './components/Footer';
 import PricingPlansModal from './components/PricingPlansModal';
@@ -40,14 +44,31 @@ export default function App() {
   const [resetCodeParam, setResetCodeParam] = useState('');
   const [pendingPublishAfterAuth, setPendingPublishAfterAuth] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [adminInitialTab, setAdminInitialTab] = useState('moderation');
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileInitialTab, setProfileInitialTab] = useState('my-ads');
   const [pricingModalOpen, setPricingModalOpen] = useState(false);
+  const [howItWorksModalOpen, setHowItWorksModalOpen] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalInitialDoc, setLegalInitialDoc] = useState('cgu');
   const [boostAdTarget, setBoostAdTarget] = useState(null);
   const [paymentToast, setPaymentToast] = useState(null);
 
   const listingsRef = useRef(null);
   const donationsRef = useRef(null);
+
+  // Synchronisation des ancres d'URL pour le bouton "Retour" du navigateur
+  const setModalHash = useCallback((hash) => {
+    if (typeof window !== 'undefined' && window.location.hash !== hash) {
+      window.history.pushState(null, '', hash);
+    }
+  }, []);
+
+  const clearModalHash = useCallback(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      window.history.pushState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
 
   // Fermer immédiatement l'espace admin lors de la déconnexion ou si l'utilisateur n'est pas administrateur
   useEffect(() => {
@@ -55,6 +76,94 @@ export default function App() {
       setAdminModalOpen(false);
     }
   }, [isAdmin]);
+
+  // Écouteur pour la navigation par hash et bouton "Retour"
+  useEffect(() => {
+    const handleHashChange = () => {
+      const rawHash = (typeof window !== 'undefined' ? window.location.hash : '') || '';
+      const hash = rawHash.toLowerCase();
+
+      if (!hash || hash === '#' || hash === '#categories' || hash === '#annonces') {
+        setHowItWorksModalOpen(false);
+        setPricingModalOpen(false);
+        setLegalModalOpen(false);
+        setPublishModalOpen(false);
+        setAuthModalOpen(false);
+        setProfileModalOpen(false);
+        setAdminModalOpen(false);
+        return;
+      }
+
+      if (hash === '#fonctionnement' || hash === '#comment-ca-marche') {
+        setHowItWorksModalOpen(true);
+      } else if (hash === '#tarifs' || hash === '#formules' || hash === '#abonnements') {
+        setPricingModalOpen(true);
+      } else if (hash === '#publier' || hash === '#deposer') {
+        if (!user) {
+          setAuthDefaultTab('signup');
+          setAuthNotice('Vous devez créer un compte gratuit pour publier une annonce sur Seconde Vie.');
+          setPendingPublishAfterAuth(true);
+          setAuthModalOpen(true);
+        } else {
+          setPublishModalOpen(true);
+        }
+      } else if (hash === '#dons' || hash === '#objets-gratuits') {
+        setFilters(prev => ({ ...prev, type: 'don' }));
+        if (listingsRef.current) {
+          listingsRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else if (hash === '#cgu') {
+        setLegalInitialDoc('cgu');
+        setLegalModalOpen(true);
+      } else if (hash === '#confidentialite' || hash === '#privacy') {
+        setLegalInitialDoc('privacy');
+        setLegalModalOpen(true);
+      } else if (hash === '#charte' || hash === '#securite' || hash === '#regles') {
+        setLegalInitialDoc('rules');
+        setLegalModalOpen(true);
+      } else if (hash === '#mentions' || hash === '#mentions-legales') {
+        setLegalInitialDoc('mentions');
+        setLegalModalOpen(true);
+      } else if (hash === '#favoris' || hash === '#mes-favoris') {
+        if (!user) {
+          setAuthDefaultTab('login');
+          setAuthModalOpen(true);
+        } else {
+          setProfileInitialTab('favorites');
+          setProfileModalOpen(true);
+        }
+      } else if (hash === '#profil' || hash === '#mon-compte') {
+        if (!user) {
+          setAuthDefaultTab('login');
+          setAuthModalOpen(true);
+        } else {
+          setProfileInitialTab('profile');
+          setProfileModalOpen(true);
+        }
+      } else if (hash === '#mes-annonces') {
+        if (!user) {
+          setAuthDefaultTab('login');
+          setAuthModalOpen(true);
+        } else {
+          setProfileInitialTab('my-ads');
+          setProfileModalOpen(true);
+        }
+      } else if (hash === '#admin') {
+        if (isAdmin) {
+          setAdminInitialTab('moderation');
+          setAdminModalOpen(true);
+        }
+      }
+    };
+
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, [user, isAdmin, setFilters]);
 
   // Gérer les paramètres d'URL (?code=... Strapi reset password & ?payment_ref=... retour Moneroo)
   useEffect(() => {
@@ -127,6 +236,7 @@ export default function App() {
       });
       return;
     }
+    setModalHash('#publier');
     setPublishModalOpen(true);
   };
 
@@ -135,8 +245,56 @@ export default function App() {
       openAuthModal({ tab: 'login', notice: null, pendingPublish: false });
     } else {
       setProfileInitialTab(tab);
+      if (tab === 'favorites') setModalHash('#favoris');
+      else if (tab === 'profile') setModalHash('#profil');
+      else setModalHash('#mes-annonces');
       setProfileModalOpen(true);
     }
+  };
+
+  const handleOpenPricing = () => {
+    setModalHash('#tarifs');
+    setPricingModalOpen(true);
+  };
+
+  const handleOpenHowItWorks = () => {
+    setModalHash('#fonctionnement');
+    setHowItWorksModalOpen(true);
+  };
+
+  const handleOpenLegal = (docId = 'cgu') => {
+    setLegalInitialDoc(docId);
+    if (docId === 'privacy') setModalHash('#confidentialite');
+    else if (docId === 'rules') setModalHash('#charte');
+    else if (docId === 'mentions') setModalHash('#mentions-legales');
+    else setModalHash('#cgu');
+    setLegalModalOpen(true);
+  };
+
+  const handleOpenBoost = (adToBoost = null) => {
+    if (adToBoost) {
+      setBoostAdTarget(adToBoost);
+    } else if (!user) {
+      openAuthModal({ tab: 'login', notice: 'Connectez-vous pour booster l’une de vos annonces.' });
+    } else {
+      handleOpenProfile('my-ads');
+    }
+  };
+
+  const handleNavigateExplore = () => {
+    setFilters({
+      search: '',
+      category: 'all',
+      type: 'all',
+      condition: 'all',
+      commune: 'all',
+      minPrice: '',
+      maxPrice: '',
+      sortBy: 'recent'
+    });
+    const el = document.getElementById('categories');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Annonces de dons gratuits pour la section dédiée
@@ -176,28 +334,20 @@ export default function App() {
       <Header
         onOpenPublish={handleOpenPublish}
         onOpenAuth={() => openAuthModal({ tab: 'login', notice: null, pendingPublish: false })}
-        onOpenAdmin={() => { if (isAdmin) setAdminModalOpen(true); }}
+        onOpenAdmin={() => {
+          if (isAdmin) {
+            setAdminInitialTab('moderation');
+            setModalHash('#admin');
+            setAdminModalOpen(true);
+          }
+        }}
         onOpenProfile={handleOpenProfile}
-        onNavigateHome={() => {
-          setFilters({
-            search: '',
-            category: 'all',
-            type: 'all',
-            condition: 'all',
-            commune: 'all',
-            minPrice: '',
-            maxPrice: '',
-            sortBy: 'recent'
-          });
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        onNavigateHome={handleNavigateExplore}
         onNavigateDonations={scrollToDonations}
-        onNavigateHowItWorks={() => {
-          const el = document.getElementById('comment-ca-marche');
-          if (el) el.scrollIntoView({ behavior: 'smooth' });
-        }}
+        onNavigateHowItWorks={handleOpenHowItWorks}
+        onOpenHowItWorks={handleOpenHowItWorks}
         onOpenFavorites={() => handleOpenProfile('favorites')}
-        onOpenPricing={() => setPricingModalOpen(true)}
+        onOpenPricing={handleOpenPricing}
       />
 
       {/* Bandeau discret lorsque Strapi local n'est pas joignable (Mode vitrine / Cloud) */}
@@ -207,16 +357,21 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. Hero Banner avec Slogan & Recherche Principale */}
+      {/* 2. Hero Banner Compact avec Slogan & Recherche Principale */}
       <HeroBanner
         onOpenPublish={handleOpenPublish}
         onFilterApply={scrollToListings}
       />
 
-      {/* 3. Vitrine et Rangs par Catégories Officielles */}
+      {/* 2b. Bandeau dédié Sélection Sponsorisée ⚡ (Priorité Boostés) */}
+      <SponsoredShowcase
+        onSelectAd={setSelectedAd}
+        onOpenPublish={handleOpenPublish}
+      />
+
+      {/* 3. Navigation par univers — Explorez par catégorie */}
       <CategoryGrid
         onSelectCategory={scrollToListings}
-        onSelectAd={setSelectedAd}
       />
 
       {/* 4. Section spéciale « Les Objets Gratuits (Dons solidaires) » */}
@@ -249,10 +404,10 @@ export default function App() {
               </button>
             </div>
 
-            {/* Carrousel horizontal fluide sur mobile, grille 2/3/4 colonnes sur tablette & desktop */}
-            <div className="flex overflow-x-auto gap-3 pb-2 snap-x no-scrollbar sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 sm:gap-5 sm:overflow-visible">
-              {freeDonationsList.slice(0, 4).map((ad) => (
-                <div key={ad.id} className="min-w-[200px] w-[58%] sm:w-auto sm:min-w-0 snap-start flex-shrink-0">
+            {/* Carrousel horizontal fluide sur mobile, grille compacte sur desktop */}
+            <div className="grid grid-cols-3 gap-2 lg:grid-cols-6 lg:gap-3">
+              {freeDonationsList.slice(0, 6).map((ad, idx) => (
+                <div key={ad.id} className={`min-w-0 ${idx >= 3 ? 'hidden lg:block' : ''}`}>
                   <AdCard ad={ad} onSelectAd={setSelectedAd} />
                 </div>
               ))}
@@ -331,7 +486,7 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
               {filteredAds.map((ad) => (
                 <AdCard key={ad.id} ad={ad} onSelectAd={setSelectedAd} />
               ))}
@@ -341,8 +496,14 @@ export default function App() {
         </div>
       </section>
 
+      {/* 5b. Formulaire d'inscription aux alertes nouveautés & dons */}
+      <NewsletterAlertSection />
+
       {/* 6. Section « Comment ça marche » */}
-      <HowItWorks onOpenPublish={handleOpenPublish} />
+      <HowItWorks
+        onOpenPublish={handleOpenPublish}
+        onOpenHowItWorksModal={handleOpenHowItWorks}
+      />
 
       {/* 7. Footer Complet */}
       <Footer
@@ -352,30 +513,90 @@ export default function App() {
         }}
         onOpenPublish={handleOpenPublish}
         onNavigateDonations={scrollToDonations}
+        onOpenHowItWorks={handleOpenHowItWorks}
+        onOpenPricing={handleOpenPricing}
+        onOpenBoost={handleOpenBoost}
+        onOpenProfile={handleOpenProfile}
+        onOpenFavorites={() => handleOpenProfile('favorites')}
+        onOpenLegal={handleOpenLegal}
+        onOpenAdmin={() => {
+          if (isAdmin) {
+            setAdminInitialTab('moderation');
+            setModalHash('#admin');
+            setAdminModalOpen(true);
+          }
+        }}
+        onNavigateHome={handleNavigateExplore}
       />
 
       {/* Barre de navigation mobile fixe façon application native */}
       <MobileBottomNav
-        onNavigateHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onNavigateHome={handleNavigateExplore}
         onNavigateDonations={scrollToDonations}
         onOpenPublish={handleOpenPublish}
         onOpenFavorites={() => handleOpenProfile('favorites')}
         onOpenProfile={handleOpenProfile}
-        onOpenAdmin={() => { if (isAdmin) setAdminModalOpen(true); }}
+        onOpenAdmin={() => {
+          if (isAdmin) {
+            setAdminInitialTab('moderation');
+            setModalHash('#admin');
+            setAdminModalOpen(true);
+          }
+        }}
       />
+
+      {/* Modale Dédiée : Fonctionnement & Compartiments du site (z-40) */}
+      {howItWorksModalOpen && (
+        <FonctionnementModal
+          isOpen={howItWorksModalOpen}
+          onClose={() => {
+            setHowItWorksModalOpen(false);
+            clearModalHash();
+          }}
+          onNavigateExplore={handleNavigateExplore}
+          onNavigateDonations={scrollToDonations}
+          onOpenPublish={handleOpenPublish}
+          onOpenPricing={handleOpenPricing}
+          onOpenBoost={handleOpenBoost}
+          onOpenLegal={handleOpenLegal}
+          onOpenProfile={handleOpenProfile}
+        />
+      )}
+
+      {/* Modale Documents Légaux & Charte de modération (z-40) */}
+      {legalModalOpen && (
+        <LegalModal
+          initialDoc={legalInitialDoc}
+          onClose={() => {
+            setLegalModalOpen(false);
+            clearModalHash();
+          }}
+        />
+      )}
 
       {/* Modales Principales (z-40) */}
       {publishModalOpen && (
         <PublishModal
-          onClose={() => setPublishModalOpen(false)}
-          onOpenPricing={() => setPricingModalOpen(true)}
+          onClose={() => {
+            setPublishModalOpen(false);
+            clearModalHash();
+          }}
+          onOpenPricing={handleOpenPricing}
+          onOpenBoost={(adToBoost) => {
+            setPublishModalOpen(false);
+            clearModalHash();
+            setBoostAdTarget(adToBoost);
+          }}
           onSuccess={() => {}}
         />
       )}
 
       {pricingModalOpen && (
         <PricingPlansModal
-          onClose={() => setPricingModalOpen(false)}
+          onClose={() => {
+            setPricingModalOpen(false);
+            clearModalHash();
+          }}
           onOpenAuth={() => openAuthModal({ tab: 'login', notice: null, pendingPublish: false })}
         />
       )}
@@ -398,13 +619,16 @@ export default function App() {
             setAuthModalOpen(false);
             setAuthNotice(null);
             setPendingPublishAfterAuth(false);
+            clearModalHash();
           }}
           onSuccess={(loggedUser) => {
             if (pendingPublishAfterAuth) {
               setPendingPublishAfterAuth(false);
               setAuthNotice(null);
+              setModalHash('#publier');
               setPublishModalOpen(true);
             } else if (checkIsAdminUser(loggedUser)) {
+              setModalHash('#admin');
               setAdminModalOpen(true);
             }
           }}
@@ -413,7 +637,11 @@ export default function App() {
 
       {adminModalOpen && isAdmin && (
         <AdminDashboard
-          onClose={() => setAdminModalOpen(false)}
+          initialTab={adminInitialTab}
+          onClose={() => {
+            setAdminModalOpen(false);
+            clearModalHash();
+          }}
           onSelectAd={(ad) => {
             setSelectedAd(ad);
           }}
@@ -423,16 +651,23 @@ export default function App() {
       {profileModalOpen && (
         <UserProfile
           initialTab={profileInitialTab}
-          onClose={() => setProfileModalOpen(false)}
+          onClose={() => {
+            setProfileModalOpen(false);
+            clearModalHash();
+          }}
           onOpenPublish={() => {
             setProfileModalOpen(false);
-            setPublishModalOpen(true);
+            handleOpenPublish();
           }}
-          onOpenPricing={() => setPricingModalOpen(true)}
+          onOpenPricing={handleOpenPricing}
           onOpenBoost={(adToBoost) => setBoostAdTarget(adToBoost)}
-          onOpenAdmin={() => {
+          onOpenAdmin={(tab = 'moderation') => {
             setProfileModalOpen(false);
-            if (isAdmin) setAdminModalOpen(true);
+            if (isAdmin) {
+              setAdminInitialTab(tab);
+              setModalHash('#admin');
+              setAdminModalOpen(true);
+            }
           }}
           onSelectAd={(ad) => {
             setSelectedAd(ad);
